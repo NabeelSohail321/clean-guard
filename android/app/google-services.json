@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "451413753489",
+    "project_id": "cleanguard-cc598",
+    "storage_bucket": "cleanguard-cc598.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:451413753489:android:ae35bb6ce947ca8c2f8930",
+        "android_client_info": {
+          "package_name": "com.cleanguard.mobile_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDM2Xq3RhcwNkxgYGCzK0UwAgRwPjRUE0w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
