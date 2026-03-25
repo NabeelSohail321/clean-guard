@@ -63,6 +63,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '451413753489',
     projectId: 'cleanguard-cc598',
     storageBucket: 'cleanguard-cc598.firebasestorage.app',
-    iosBundleId: 'com.cleanguard.mobileApp',
+    iosBundleId: 'com.client.cleanguard',
   );
 }
