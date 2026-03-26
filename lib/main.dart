@@ -27,8 +27,10 @@ import 'package:mobile_app/screens/schedule_screen.dart';
 import 'package:mobile_app/screens/start_work_screen.dart';
 import 'package:mobile_app/providers/dashboard_provider.dart';
 import 'package:mobile_app/screens/login_screen.dart';
+import 'package:mobile_app/screens/signup_screen.dart';
 import 'package:mobile_app/screens/dashboard_screen.dart';
 import 'package:mobile_app/screens/splash_screen.dart';
+import 'package:mobile_app/screens/profile_screen.dart';
 import 'package:mobile_app/screens/admin/location_list_screen.dart';
 import 'package:mobile_app/screens/admin/location_form_screen.dart';
 import 'package:mobile_app/models/location.dart';
@@ -100,10 +102,12 @@ class MyApp extends StatelessWidget {
             title: 'CleanGuard QC',
             theme: AppTheme.lightTheme,
             debugShowCheckedModeBanner: false,
-            home: const AuthWrapper(),
+            home: const SplashScreen(),
             routes: {
               '/login': (context) => const LoginScreen(),
-              '/dashboard': (context) => const DashboardScreen(), // Keep for now, but AuthWrapper will override
+              '/signup': (context) => const SignupScreen(),
+              '/dashboard': (context) => const DashboardScreen(),
+              '/profile': (context) => const ProfileScreen(),
               '/admin-dashboard': (context) => const AdminDashboardScreen(),
               '/supervisor-dashboard': (context) => const SupervisorDashboardScreen(),
               // Inspector dashboard route removed or redirected
@@ -142,24 +146,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context);
-    
-    if (auth.loading) {
-      return const SplashScreen();
-    }
-    
-    if (auth.isAuthenticated) {
-      return const DashboardScreen();
-    }
-    
-    return const LoginScreen();
-  }
-}
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print(message.notification!.title.toString());

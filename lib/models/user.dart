@@ -5,6 +5,8 @@ class User {
   final String role;
   final String? token;
   final List<String>? assignedLocations;
+  final Map<String, dynamic>? notifications;
+  final String? fcmToken;
 
   User({
     required this.id,
@@ -13,6 +15,8 @@ class User {
     required this.role,
     this.token,
     this.assignedLocations,
+    this.notifications,
+    this.fcmToken,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -29,6 +33,8 @@ class User {
               return e.toString();
             }).where((e) => e.isNotEmpty).toList().cast<String>()
           : null,
+      notifications: json['notifications'] as Map<String, dynamic>?,
+      fcmToken: json['fcmToken'],
     );
   }
 
@@ -40,6 +46,8 @@ class User {
       'role': role,
       'token': token,
       'assignedLocations': assignedLocations,
+      'notifications': notifications,
+      'fcmToken': fcmToken,
     };
   }
 }

@@ -11,6 +11,11 @@ class UserService {
     return (response.data as List).map((e) => User.fromJson(e)).toList();
   }
 
+  Future<User> getProfile(String id) async {
+    final response = await _apiService.dio.get('/users/profile/$id');
+    return User.fromJson(response.data);
+  }
+
   Future<void> createUser(Map<String, dynamic> data) async {
     await _apiService.dio.post('/users', data: data);
   }

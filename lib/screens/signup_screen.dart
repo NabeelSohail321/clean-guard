@@ -3,17 +3,21 @@ import 'package:provider/provider.dart';
 import 'package:mobile_app/providers/auth_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
+  
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  
   bool _isLoading = false;
 
   Future<void> _submit() async {
@@ -21,14 +25,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await Provider.of<AuthProvider>(context, listen: false).login(
-        _emailController.text,
+      await Provider.of<AuthProvider>(context, listen: false).register(
+        _nameController.text.trim(),
+        _emailController.text.trim(),
         _passwordController.text,
       );
-      // Navigation is handled by the AuthWrapper/Stream in main or simple push replacement here if not using stream
-      // helping the router know state changed
+      
       if (mounted) {
-         Navigator.of(context).pushReplacementNamed('/dashboard');
+         ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+               content: Text('Account created successfully! Please sign in.'),
+               backgroundColor: Colors.green,
+               behavior: SnackBarBehavior.floating,
+            ),
+         );
+         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
@@ -52,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
     
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -65,10 +76,10 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo
+                // Logo Header
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 64,
+                  height: 64,
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primary,
                     shape: BoxShape.circle,
@@ -85,59 +96,60 @@ class _LoginScreenState extends State<LoginScreen> {
                     'CG',
                     style: GoogleFonts.outfit(
                       color: Colors.white,
-                      fontSize: 32,
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'CleanGuard QC',
-                  style: theme.textTheme.displaySmall,
+                  'Create an Account',
+                  style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'Professional Quality Control',
+                  'Join CleanGuard QC',
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: theme.colorScheme.secondary,
                   ),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 32),
                 
-                // Login Card
+                // Sign Up Card
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(32),
+                    padding: const EdgeInsets.all(24),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            'Welcome Back',
-                            style: theme.textTheme.headlineSmall,
-                            textAlign: TextAlign.center,
-                          ),
+                          // Name
+                          Text('Full Name', style: theme.textTheme.titleSmall),
                           const SizedBox(height: 8),
-                          Text(
-                            'Please sign in to your account',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.secondary,
-                            ),
-                            textAlign: TextAlign.center,
+                          TextFormField(
+                            controller: _nameController,
+                            decoration: const InputDecoration(hintText: 'John Doe'),
+                            textCapitalization: TextCapitalization.words,
+                            validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null,
                           ),
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 20),
                           
                           // Email
                           Text('Email Address', style: theme.textTheme.titleSmall),
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: _emailController,
-                            decoration: const InputDecoration(
-                              hintText: 'name@company.com',
-                            ),
-                            validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+                            decoration: const InputDecoration(hintText: 'name@company.com'),
+                            keyboardType: TextInputType.emailAddress,
+                            validator: (value) {
+                               if (value == null || value.trim().isEmpty) return 'Required';
+                               if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                                  return 'Enter a valid email address';
+                               }
+                               return null;
+                            },
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 20),
                           
                           // Password
                           Text('Password', style: theme.textTheme.titleSmall),
@@ -145,37 +157,48 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: true,
-                            decoration: const InputDecoration(
-                              hintText: '••••••••',
-                            ),
-                            validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+                            decoration: const InputDecoration(hintText: '••••••••'),
+                            validator: (value) {
+                               if (value == null || value.isEmpty) return 'Required';
+                               if (value.length < 6) return 'Password must be at least 6 characters';
+                               return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          
+                          // Confirm Password
+                          Text('Confirm Password', style: theme.textTheme.titleSmall),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            obscureText: true,
+                            decoration: const InputDecoration(hintText: '••••••••'),
+                            validator: (value) {
+                               if (value == null || value.isEmpty) return 'Required';
+                               if (value != _passwordController.text) return 'Passwords do not match';
+                               return null;
+                            },
                           ),
                           const SizedBox(height: 32),
                           
-                          // Button
+                          // Submit Button
                           SizedBox(
                             height: 48,
                             child: ElevatedButton(
                               onPressed: _isLoading ? null : _submit,
                               child: _isLoading 
                                 ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
-                                : const Text('Sign In'),
+                                : const Text('Sign Up'),
                             ),
                           ),
-                          
-                          const SizedBox(height: 16),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pushNamed('/signup');
-                            },
-                            child: Text(
-                              "Don't have an account? Sign Up",
-                              style: TextStyle(
-                                color: theme.colorScheme.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
+                           
+                           const SizedBox(height: 16),
+                           TextButton(
+                              onPressed: () {
+                                 Navigator.of(context).pop();
+                              },
+                              child: Text('Already have an account? Sign In', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600)),
+                           )
                         ],
                       ),
                     ),

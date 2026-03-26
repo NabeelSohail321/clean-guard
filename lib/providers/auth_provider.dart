@@ -42,35 +42,62 @@ class AuthProvider extends ChangeNotifier {
   Future<void> login(String email, String password) async {
     try {
       String? deviceToken;
-
-      // 1. Logic to get Device Token (Adapted from Stock Buddy)
       if (Platform.isAndroid || Platform.isIOS) {
         try {
-          // Assuming your class is named NotificationService based on your prompt
           final notificationService = NotificationServices();
           deviceToken = await notificationService.getDeviceToken();
           print('Device token retrieved: $deviceToken');
-        } catch (e) {
-          print('Failed to get device token: $e');
-          // We catch the error here so login proceeds even if FCM fails
-        }
+        } catch (e) {}
       }
 
-      // 2. Send Login Request with fcmToken
       final response = await _apiService.dio.post('/users/login', data: {
         'email': email,
         'password': password,
-        'fcmToken': deviceToken, // Sending the token with the specific name you requested
+        'fcmToken': deviceToken, 
       });
 
       _user = User.fromJson(response.data);
-
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user', jsonEncode(_user!.toJson()));
-
       notifyListeners();
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.statusCode == 401) {
+        throw Exception(e.response?.data['message'] ?? 'Invalid email or password');
+      }
+      throw Exception('Login failed. Please check your connection and try again.');
     } catch (e) {
-      // Re-throw to be handled by UI
+      throw Exception('An unexpected error occurred.');
+    }
+  }
+
+  // Registration Function
+  Future<void> register(String name, String email, String password) async {
+    try {
+      String? deviceToken;
+      if (Platform.isAndroid || Platform.isIOS) {
+        try {
+          final notificationService = NotificationServices();
+          deviceToken = await notificationService.getDeviceToken();
+        } catch (e) {}
+      }
+
+      final response = await _apiService.dio.post('/users', data: {
+        'name': name,
+        'email': email,
+        'password': password,
+        'role': 'admin',
+        'fcmToken': deviceToken,
+      });
+
+      // Handle success but explicitly DO NOT automatically log in 
+      // the user, returning them to the login screen instead.
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.statusCode == 400) {
+        // Handle specific server rejections (e.g., 'User already exists')
+        throw Exception(e.response?.data['message'] ?? 'Registration failed');
+      }
+      throw Exception('An unexpected edge error occurred during registration.');
+    } catch (e) {
       rethrow;
     }
   }

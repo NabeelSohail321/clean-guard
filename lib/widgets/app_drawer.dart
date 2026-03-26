@@ -19,17 +19,23 @@ class AppDrawer extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          UserAccountsDrawerHeader(
-            decoration: const BoxDecoration(
-              color: AppTheme.primary,
-            ),
-            accountName: Text(user?.name ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold)),
-            accountEmail: Text(user?.email ?? '', style: const TextStyle(color: Colors.white70)),
-            currentAccountPicture: CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Text(
-                user?.name.substring(0, 1).toUpperCase() ?? 'U',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 24),
+          InkWell(
+            onTap: () {
+               Navigator.pop(context);
+               Navigator.pushNamed(context, '/profile');
+            },
+            child: UserAccountsDrawerHeader(
+              decoration: const BoxDecoration(
+                color: AppTheme.primary,
+              ),
+              accountName: Text(user?.name ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold)),
+              accountEmail: Text(user?.email ?? '', style: const TextStyle(color: Colors.white70)),
+              currentAccountPicture: CircleAvatar(
+                backgroundColor: Colors.white,
+                child: Text(
+                  user?.name.substring(0, 1).toUpperCase() ?? 'U',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 24),
+                ),
               ),
             ),
           ),
@@ -38,6 +44,7 @@ class AppDrawer extends StatelessWidget {
               padding: EdgeInsets.zero,
               children: [
                 _buildDrawerItem(context, 'Dashboard', Icons.dashboard, '/dashboard'),
+                _buildDrawerItem(context, 'My Profile', Icons.person, '/profile'),
                 _buildDrawerItem(context, 'Inspections', Icons.assignment, '/inspections'),
                 _buildDrawerItem(context, 'Tickets', Icons.report_problem, '/tickets'),
                 _buildDrawerItem(context, 'Schedule', Icons.calendar_month, '/schedule'),
