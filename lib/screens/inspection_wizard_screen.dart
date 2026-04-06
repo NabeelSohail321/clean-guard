@@ -8,7 +8,11 @@ import 'package:mobile_app/services/location_service.dart';
 import 'package:mobile_app/services/template_service.dart';
 import 'package:mobile_app/services/user_service.dart';
 import 'package:mobile_app/providers/auth_provider.dart';
+import 'package:mobile_app/config/constants.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
+import 'dart:io';
 
 class InspectionWizardScreen extends StatefulWidget {
   final String? inspectionId; // Add this
@@ -290,6 +294,7 @@ class _InspectionWizardScreenState extends State<InspectionWizardScreen> {
                  'score': item.score,
                  'comment': item.comment ?? '',
                  'rating': item.rating,
+                 if (item.photos != null && item.photos!.isNotEmpty) 'photos': item.photos,
                });
                
                if (item.status == 'pass' || (item.rating != null && item.rating! >= 3)) {
@@ -300,8 +305,8 @@ class _InspectionWizardScreenState extends State<InspectionWizardScreen> {
               itemsPayload.add({
                  'itemId': tmplItem.id,
                  'name': tmplItem.label,
-                 'type': tmplItem.type,
-                 'status': 'N/A',
+                 'type': ['pass_fail', 'rating_1_5', 'yes_no'].contains(tmplItem.type) ? tmplItem.type : 'pass_fail',
+                 'status': 'pass',
                  'score': 0,
                  'comment': '',
                });
@@ -329,6 +334,7 @@ class _InspectionWizardScreenState extends State<InspectionWizardScreen> {
                        'score': item.score,
                        'comment': item.comment ?? '',
                        'rating': item.rating,
+                       if (item.photos != null && item.photos!.isNotEmpty) 'photos': item.photos,
                      });
                      
                      if (item.status == 'pass' || (item.rating != null && item.rating! >= 3)) {
@@ -339,8 +345,8 @@ class _InspectionWizardScreenState extends State<InspectionWizardScreen> {
                     subItemsPayload.add({
                        'itemId': tmplItem.id,
                        'name': tmplItem.label,
-                       'type': tmplItem.type,
-                       'status': 'N/A',
+                       'type': ['pass_fail', 'rating_1_5', 'yes_no'].contains(tmplItem.type) ? tmplItem.type : 'pass_fail',
+                       'status': 'pass',
                        'score': 0,
                        'comment': '',
                      });
@@ -633,9 +639,134 @@ class _InspectionWizardScreenState extends State<InspectionWizardScreen> {
              ),
              const SizedBox(height: 12),
              _buildInput(item, savedItem, onChange),
+             const SizedBox(height: 4),
+             _buildPhotoSection(item, savedItem, onChange),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _pickAndUploadImage(InspectionItem currentItem, ImageSource source, Function(InspectionItem) onChange) async {
+    final picker = ImagePicker();
+    final List<String> paths = [];
+    
+    if (source == ImageSource.gallery) {
+      final pickedFiles = await picker.pickMultiImage(imageQuality: 50);
+      for (var f in pickedFiles) {
+        paths.add(f.path);
+      }
+    } else {
+      final pickedFile = await picker.pickImage(source: ImageSource.camera, imageQuality: 50);
+      if (pickedFile != null) paths.add(pickedFile.path);
+    }
+    
+    if (paths.isEmpty) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    
+    try {
+      final List<String> base64Images = [];
+      for (var path in paths) {
+         final bytes = await File(path).readAsBytes();
+         base64Images.add(base64Encode(bytes));
+      }
+      
+      if (mounted) {
+        Navigator.pop(context); // close dialog
+        final currentPhotos = List<String>.from(currentItem.photos ?? []);
+        currentPhotos.addAll(base64Images);
+        
+        onChange(InspectionItem(
+           label: currentItem.label,
+           type: currentItem.type,
+           status: currentItem.status,
+           comment: currentItem.comment,
+           score: currentItem.score,
+           rating: currentItem.rating,
+           photos: currentPhotos,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to upload images: $e')));
+      }
+    }
+  }
+
+  Widget _buildPhotoSection(TemplateItem tmplItem, InspectionItem? savedItem, Function(InspectionItem) onChange) {
+    final currentItem = savedItem ?? InspectionItem(label: tmplItem.label, type: tmplItem.type, status: 'N/A', score: 0.0);
+    final photos = currentItem.photos ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+           children: [
+             TextButton.icon(
+                icon: const Icon(Icons.camera_alt, size: 18),
+                label: const Text('Camera'),
+                onPressed: () => _pickAndUploadImage(currentItem, ImageSource.camera, onChange),
+             ),
+             TextButton.icon(
+                icon: const Icon(Icons.photo_library, size: 18),
+                label: const Text('Gallery'),
+                onPressed: () => _pickAndUploadImage(currentItem, ImageSource.gallery, onChange),
+             ),
+           ]
+        ),
+        if (photos.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: photos.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final photoData = entry.value;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: photoData.length > 200 
+                         ? Image.memory(base64Decode(photoData), width: 64, height: 64, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.broken_image, size: 64))
+                         : Image.network(photoData.startsWith('http') ? photoData : '${AppConstants.apiBaseUrl.replaceAll('/api', '')}$photoData', width: 64, height: 64, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.broken_image, size: 64)),
+                    ),
+                    Positioned(
+                      right: -8,
+                      top: -8,
+                      child: InkWell(
+                        onTap: () {
+                           final newPhotos = List<String>.from(photos)..removeAt(idx);
+                           onChange(InspectionItem(
+                             label: currentItem.label,
+                             type: currentItem.type,
+                             status: currentItem.status,
+                             comment: currentItem.comment,
+                             score: currentItem.score,
+                             rating: currentItem.rating,
+                             photos: newPhotos.isEmpty ? null : newPhotos,
+                           ));
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                          child: const Icon(Icons.close, size: 14, color: Colors.white),
+                        ),
+                      ),
+                    )
+                  ]
+                );
+              }).toList(),
+            ),
+          )
+      ]
     );
   }
 
@@ -678,7 +809,10 @@ class _InspectionWizardScreenState extends State<InspectionWizardScreen> {
                      label: tmplItem.label, 
                      type: tmplItem.type, 
                      status: 'pass', 
-                     score: 0.0 
+                     score: 0.0,
+                     comment: savedItem?.comment,
+                     rating: savedItem?.rating,
+                     photos: savedItem?.photos,
                   )),
               ),
               _buildSelectionButton(
@@ -689,12 +823,15 @@ class _InspectionWizardScreenState extends State<InspectionWizardScreen> {
                      label: tmplItem.label, 
                      type: tmplItem.type, 
                      status: 'fail', 
-                     score: 0.0 
+                     score: 0.0,
+                     comment: savedItem?.comment,
+                     rating: savedItem?.rating,
+                     photos: savedItem?.photos,
                   )),
               ),
             ],
           );
-      } else if (tmplItem.type == 'rating') {
+      } else if (tmplItem.type == 'rating' || tmplItem.type == 'rating_1_5') {
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: List.generate(5, (i) {
@@ -710,7 +847,9 @@ class _InspectionWizardScreenState extends State<InspectionWizardScreen> {
                      type: tmplItem.type,
                      status: rating >= 3 ? 'pass' : 'fail',
                      rating: rating,
-                     score: 0.0
+                     score: 0.0,
+                     comment: savedItem?.comment,
+                     photos: savedItem?.photos,
                  )),
                );
             }),
@@ -722,13 +861,13 @@ class _InspectionWizardScreenState extends State<InspectionWizardScreen> {
                 label: 'Yes',
                 isSelected: savedItem?.status == 'pass',
                 activeColor: const Color(0xFF10b981),
-                onTap: () => onChange(InspectionItem(label: tmplItem.label, type: tmplItem.type, status: 'pass', score: 0.0)),
+                onTap: () => onChange(InspectionItem(label: tmplItem.label, type: tmplItem.type, status: 'pass', score: 0.0, comment: savedItem?.comment, rating: savedItem?.rating, photos: savedItem?.photos)),
               ),
               _buildSelectionButton(
                 label: 'No',
                 isSelected: savedItem?.status == 'fail',
                 activeColor: const Color(0xFFef4444),
-                onTap: () => onChange(InspectionItem(label: tmplItem.label, type: tmplItem.type, status: 'fail', score: 0.0)),
+                onTap: () => onChange(InspectionItem(label: tmplItem.label, type: tmplItem.type, status: 'fail', score: 0.0, comment: savedItem?.comment, rating: savedItem?.rating, photos: savedItem?.photos)),
               ),
             ],
           );
@@ -743,6 +882,8 @@ class _InspectionWizardScreenState extends State<InspectionWizardScreen> {
            status: 'pass', 
            comment: val,
            score: 0.0,
+           rating: savedItem?.rating,
+           photos: savedItem?.photos,
         )),
         decoration: InputDecoration(
           labelText: 'Comments (Optional)',

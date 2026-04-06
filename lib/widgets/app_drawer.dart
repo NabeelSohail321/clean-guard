@@ -60,7 +60,7 @@ class AppDrawer extends StatelessWidget {
                   _buildDrawerItem(context, 'Locations', Icons.place, '/admin/locations'),
                   _buildDrawerItem(context, 'Templates', Icons.description, '/admin/templates'),
                   _buildDrawerItem(context, 'User Management', Icons.people, '/users'),
-                  _buildDrawerItem(context, 'Reports', Icons.bar_chart, '/reports'),
+                  // _buildDrawerItem(context, 'Reports', Icons.bar_chart, '/reports'),
                   _buildDrawerItem(context, 'Work Stats', Icons.insights, '/admin/work-stats'),
                 ],
               ],

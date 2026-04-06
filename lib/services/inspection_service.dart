@@ -18,6 +18,7 @@ class InspectionService {
 
   Future<Inspection> createInspection(Map<String, dynamic> data) async {
     final response = await _apiService.dio.post('/inspections', data: data);
+    print(response);
     return Inspection.fromJson(response.data);
   }
 
@@ -63,5 +64,20 @@ class InspectionService {
       'scheduledDate': date.toIso8601String(),
     });
     return Inspection.fromJson(response.data);
+  }
+
+  Future<List<String>> uploadPhotos(List<String> filePaths) async {
+    List<MultipartFile> multipartFiles = [];
+    for (String path in filePaths) {
+      multipartFiles.add(await MultipartFile.fromFile(path));
+    }
+    
+    FormData formData = FormData.fromMap({
+      'photos': multipartFiles,
+    });
+    
+    final response = await _apiService.dio.post('/upload/multiple', data: formData);
+    final files = response.data['files'] as List;
+    return files.map((f) => f['url'].toString()).toList();
   }
 }

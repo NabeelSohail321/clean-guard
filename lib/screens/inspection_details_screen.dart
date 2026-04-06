@@ -10,6 +10,8 @@ import 'package:mobile_app/providers/auth_provider.dart';
 import 'package:mobile_app/screens/ticket_form_screen.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:mobile_app/screens/inspection_wizard_screen.dart';
+import 'package:mobile_app/config/constants.dart';
+import 'dart:convert';
 
 class InspectionDetailsScreen extends StatefulWidget {
   final String inspectionId;
@@ -435,67 +437,113 @@ class _InspectionDetailsScreenState extends State<InspectionDetailsScreen> {
      return null;
   }
 
-  Widget _buildHeader(BuildContext context) { 
+  Widget _buildHeader(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final isAdmin = auth.user?.role == 'admin' || auth.user?.role == 'sub_admin';
     final inspection = _inspection!;
 
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFe2e8f0)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _buildInfoRow(Icons.person, 'Inspector', inspection.inspector?.name ?? 'Unassigned')
-                ),
-                if (isAdmin) 
-                  IconButton(
-                    icon: const Icon(Icons.edit, size: 20), 
-                    onPressed: _showAssignDialog,
-                    tooltip: 'Assign Inspector',
-                  ),
-                Container(
-                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                   decoration: BoxDecoration(
-                     color: _getScoreColor(inspection.totalScore),
-                     borderRadius: BorderRadius.circular(20),
+            // Left details
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   _buildDetailText('ID:', inspection.id.substring(inspection.id.length - 8).toUpperCase()),
+                   const SizedBox(height: 8),
+                   _buildDetailText('Location:', inspection.location?.name ?? 'Unknown'),
+                   const SizedBox(height: 8),
+                   Row(
+                     children: [
+                       _buildDetailText('Inspector:', inspection.inspector?.name ?? 'Unassigned'),
+                       if (isAdmin)
+                         IconButton(
+                           padding: const EdgeInsets.only(left: 4),
+                           constraints: const BoxConstraints(),
+                           icon: const Icon(Icons.edit, size: 14, color: Colors.blue),
+                           onPressed: _showAssignDialog,
+                         )
+                     ],
                    ),
-                   child: Text('${inspection.totalScore}%', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ],
+                   const SizedBox(height: 8),
+                   Row(
+                     children: [
+                       _buildDetailText('Completed:', DateFormat('yyyy-MM-dd h:mma').format(inspection.completedDate ?? inspection.scheduledDate ?? DateTime.now())),
+                       if (isAdmin && inspection.status != 'completed')
+                         IconButton(
+                           padding: const EdgeInsets.only(left: 4),
+                           constraints: const BoxConstraints(),
+                           icon: const Icon(Icons.edit_calendar, size: 14, color: Colors.blue),
+                           onPressed: _showScheduleDialog,
+                         )
+                     ],
+                   ),
+                   const SizedBox(height: 8),
+                   _buildDetailText('Privacy:', inspection.isPrivate ? 'Private' : 'Not Private'),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.calendar_today, color: Colors.grey, size: 16),
-                const SizedBox(width: 8),
-                Text(DateFormat('MMM d, yyyy').format(inspection.completedDate ?? inspection.scheduledDate ?? DateTime.now())),
-                if (isAdmin && inspection.status != 'completed')
-                  IconButton(
-                    icon: const Icon(Icons.edit_calendar, size: 20, color: Colors.blue),
-                    onPressed: _showScheduleDialog,
-                    tooltip: inspection.scheduledDate == null ? 'Schedule Inspection' : 'Reschedule Inspection',
+            // Right pie chart
+            Expanded(
+              flex: 2,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Overall Score:', style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CircularProgressIndicator(
+                          value: inspection.totalScore / 100,
+                          strokeWidth: 12,
+                          backgroundColor: Colors.grey.shade200,
+                          color: _getScoreColor(inspection.totalScore),
+                        ),
+                        Center(
+                          child: Text(
+                            '${inspection.totalScore.toInt()}%',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-              ],
-            ),
+                ],
+              )
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.grey),
-        const SizedBox(width: 8),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-      ],
-    );
+  Widget _buildDetailText(String label, String value) {
+     return RichText(
+        text: TextSpan(
+           style: const TextStyle(fontSize: 13, color: Colors.black87),
+           children: [
+              TextSpan(text: '$label ', style: const TextStyle(fontWeight: FontWeight.bold)),
+              TextSpan(text: value),
+           ]
+        ),
+     );
   }
+
+
 
   Widget _buildSection(InspectionSection section, ThemeData theme, bool isAdmin) {
     return Column(
@@ -564,6 +612,48 @@ class _InspectionDetailsScreenState extends State<InspectionDetailsScreen> {
     );
   }
 
+  void _showImageDialog(String photoData) {
+     Widget fullImage;
+     if (photoData.length > 200) {
+        try {
+           final cleanBase64 = photoData.contains(',') ? photoData.split(',').last.replaceAll(RegExp(r'\s+'), '') : photoData.replaceAll(RegExp(r'\s+'), '');
+           fullImage = Image.memory(base64Decode(cleanBase64), fit: BoxFit.contain);
+        } catch (_) {
+           fullImage = const Icon(Icons.broken_image, size: 100, color: Colors.white);
+        }
+     } else {
+        final fullUrl = photoData.startsWith('http') ? photoData : '${AppConstants.apiBaseUrl.replaceAll('/api', '')}$photoData';
+        fullImage = Image.network(fullUrl, fit: BoxFit.contain);
+     }
+     
+     showDialog(
+       context: context,
+       builder: (ctx) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(10),
+          child: Stack(
+            children: [
+               Positioned.fill(
+                 child: GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: InteractiveViewer(
+                       child: fullImage,
+                    )
+                 ),
+               ),
+               Positioned(
+                 top: 0, right: 0,
+                 child: IconButton(
+                   icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                   onPressed: () => Navigator.pop(ctx),
+                 ),
+               )
+            ]
+          )
+       )
+     );
+  }
+
   Widget _buildItem(InspectionItem item, bool isAdmin) {
     Color statusColor = Colors.grey;
     if (item.status == 'pass') statusColor = const Color(0xFF10b981);
@@ -581,26 +671,98 @@ class _InspectionDetailsScreenState extends State<InspectionDetailsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-               Container(
-                 width: 10, height: 10,
-                 margin: const EdgeInsets.only(top: 6, right: 12),
-                 decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+               Expanded(
+                 child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                       Text(item.label ?? item.templateItemId ?? 'Item', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1e293b), fontSize: 14)),
+                       const SizedBox(height: 12),
+                       Row(
+                          children: [
+                             Container(
+                                width: 36, height: 6,
+                                color: statusColor,
+                             ),
+                             const SizedBox(width: 12),
+                             Text(item.status == 'fail' ? 'Requires Attention' : 'Clean', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+                             if (item.score > 0) ...[
+                                const SizedBox(width: 16),
+                                Text('${item.score} / 5', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748b))),
+                             ]
+                          ],
+                       ),
+                    ]
+                 ),
                ),
-               Expanded(child: Text(item.label ?? item.templateItemId ?? 'Item', style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1e293b)))),
-               if (item.score > 0) Text('${item.score} / 5', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748b))),
+               Flexible(child: Text(item.comment != null && item.comment!.isNotEmpty ? item.comment! : 'No comment', style: const TextStyle(color: Colors.grey, fontSize: 13, fontStyle: FontStyle.italic), textAlign: TextAlign.right)),
             ],
           ),
-          if (item.comment != null && item.comment!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 22, top: 4),
-              child: Text(item.comment!, style: const TextStyle(color: Color(0xFF64748b), fontStyle: FontStyle.italic, fontSize: 13)),
-            ),
           
+          if (item.photos != null && item.photos!.isNotEmpty)
+             Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: SingleChildScrollView(
+                   scrollDirection: Axis.horizontal,
+                   child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: item.photos!.map((photoData) {
+                        Widget imageWidget;
+                        if (photoData.length > 200) {
+                          try {
+                            final cleanBase64 = photoData.contains(',') ? photoData.split(',').last.replaceAll(RegExp(r'\s+'), '') : photoData.replaceAll(RegExp(r'\s+'), '');
+                            imageWidget = Image.memory(
+                              base64Decode(cleanBase64),
+                              width: 140, height: 180, fit: BoxFit.cover,
+                              errorBuilder: (_,__,___) => Container(width: 140, height: 180, color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey))
+                            );
+                          } catch (e) {
+                            imageWidget = Container(width: 140, height: 180, color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey));
+                          }
+                        } else {
+                          final fullUrl = photoData.startsWith('http') ? photoData : '${AppConstants.apiBaseUrl.replaceAll('/api', '')}$photoData';
+                          imageWidget = Image.network(
+                              fullUrl, 
+                              width: 140, height: 180, 
+                              fit: BoxFit.cover,
+                              errorBuilder: (_,__,___) => Container(width: 140, height: 180, color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey))
+                           );
+                        }
+                        
+                        return Padding(
+                           padding: const EdgeInsets.only(right: 12),
+                           child: GestureDetector(
+                             onTap: () => _showImageDialog(photoData),
+                             child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                   ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: imageWidget,
+                                   ),
+                                   const SizedBox(height: 6),
+                                   Row(
+                                     mainAxisSize: MainAxisSize.min,
+                                     children: [
+                                         const Icon(Icons.camera_alt, size: 10, color: Colors.green),
+                                         const SizedBox(width: 4),
+                                         Text('In-app Photo ${DateFormat('MMM d, h:mm a').format(_inspection!.completedDate ?? DateTime.now())}', style: const TextStyle(fontSize: 10, color: Colors.black54)),
+                                     ],
+                                   )
+                                ],
+                             ),
+                           )
+                        );
+                      }).toList(),
+                   )
+                )
+             ),
+
           if (isAdmin && isFailed)
             Padding(
-              padding: const EdgeInsets.only(left: 22, top: 12),
+              padding: const EdgeInsets.only(top: 16),
               child: OutlinedButton.icon(
                 onPressed: () => _createIndividualTicket(item),
                 icon: const Icon(Icons.add_alert, size: 16, color: Color(0xFFef4444)),
